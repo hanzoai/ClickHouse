@@ -186,6 +186,7 @@ namespace Setting
     extern const SettingsFloatAuto promql_evaluation_time;
     extern const SettingsBool enable_shared_storage_snapshot_in_query;
     extern const SettingsUInt64Auto insert_quorum;
+    extern const SettingsBool insert_quorum_parallel;
 }
 
 namespace ServerSetting
@@ -208,6 +209,7 @@ namespace ErrorCodes
     extern const int SUPPORT_IS_DISABLED;
     extern const int INCORRECT_QUERY;
     extern const int BAD_ARGUMENTS;
+    extern const int UNSUPPORTED_PARAMETER;
 }
 
 namespace FailPoints
@@ -1526,10 +1528,11 @@ static BlockIO executeQueryImpl(
                         "Deduplication in dependent materialized view cannot work together with async inserts. "\
                         "Please disable either `deduplicate_blocks_in_dependent_materialized_views` or `async_insert` setting.");
 
-            if (settings[Setting::insert_quorum].valueOr(0) > 0)
-                throw Exception(ErrorCodes::SUPPORT_IS_DISABLED,
-                    "Insert quorum cannot be used together with async inserts. " \
-                    "Please disable either `insert_quorum` or `async_insert` setting.");
+            auto quorum_is_enabled = settings[Setting::insert_quorum].valueOr(0) > 1 || settings[Setting::insert_quorum].is_auto;
+            if (quorum_is_enabled && !settings[Setting::insert_quorum_parallel])
+                throw Exception(
+                    ErrorCodes::UNSUPPORTED_PARAMETER,
+                    "Async inserts with quorum inserts are only have sense with enabled quorum_parallel setting, either disable quorum or set quorum_parallel=1 or do not use async inserts");
 
             quota = context->getQuota();
             if (quota)
