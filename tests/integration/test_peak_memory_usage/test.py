@@ -67,11 +67,6 @@ def get_memory_usage_from_client_output_and_close(client_output):
     peek_memory_usage_str_found = False
     for line in client_output:
         print(f"'{line}'\n")
-        
-        # Check for client debug log message
-        if "Received peak memory usage value" in line:
-            print(f"Found client debug log: {line.strip()}")
-        
         if not peek_memory_usage_str_found:
             # Can be both Peak/peak
             peek_memory_usage_str_found = "eak memory usage" in line
@@ -91,23 +86,17 @@ def get_memory_usage_from_client_output_and_close(client_output):
 def test_clickhouse_client_max_peak_memory_usage_distributed(started_cluster):
     client_output = tempfile.TemporaryFile(mode="w+t")
     command_text = (
-        f"{started_cluster.get_client_cmd()} --host {shard_1.ip_address} --port 9000 --log-level=debug"
+        f"{started_cluster.get_client_cmd()} --host {shard_1.ip_address} --port 9000"
     )
     with client(name="client1>", log=client_output, command=command_text) as client1:
         client1.expect(prompt)
         client1.send(
-            "SELECT COUNT(*) FROM distributed_fixed_numbers JOIN fixed_numbers_2 ON distributed_fixed_numbers.number=fixed_numbers_2.number SETTINGS query_plan_join_swap_table = 'true', join_algorithm='hash'",
+            "SELECT COUNT(*) FROM distributed_fixed_numbers JOIN fixed_numbers_2 ON distributed_fixed_numbers.number=fixed_numbers_2.number SETTINGS query_plan_join_swap_table = 'false', join_algorithm='hash'",
         )
         client1.expect("Peak memory usage", timeout=60)
         client1.expect(prompt)
 
     peak_memory_usage = get_memory_usage_from_client_output_and_close(client_output)
-
-    print("p0 FOUND IN CLIENT ", peak_memory_usage)
-    print("p1 ", shard_2.grep_in_log("Query peak memory usage"))
-    print("p2 ", shard_1.grep_in_log("Query peak memory usage"))
-    # print("p3 ", shard_2.grep_in_log("debug_marker"))
-
     assert peak_memory_usage
     assert shard_2.contains_in_log(f"Query peak memory usage: {peak_memory_usage}")
 
