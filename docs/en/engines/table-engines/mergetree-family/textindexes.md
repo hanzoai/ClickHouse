@@ -27,7 +27,7 @@ To create a text index, first enable the corresponding experimental setting:
 SET enable_full_text_index = true;
 ```
 
-A text index can be defined on a [String](/sql-reference/data-types/string.md), [FixedString](/sql-reference/data-types/fixedstring.md), [Array(String)](/sql-reference/data-types/array.md), [Array(FixedString)](/sql-reference/data-types/array.md), and [Map](/sql-reference/data-types/map.md) (via [mapKeys](/sql-reference/functions/tuple-map-functions.md/#mapkeys) and [mapValues](/sql-reference/functions/tuple-map-functions.md/#mapvalues) map functions) column using the following syntax:
+A text index can be defined on a [String](/sql-reference/data-types/string.md), [FixedString](/sql-reference/data-types/fixedstring.md), [Array(String)](/sql-reference/data-types/array.md), [Array(FixedString)](/sql-reference/data-types/array.md), and [Map](/sql-reference/data-types/map.md) (via [mapKeys](/sql-reference/functions/tuple-map-functions.md/#mapKeys) and [mapValues](/sql-reference/functions/tuple-map-functions.md/#mapValues) map functions) column using the following syntax:
 
 ```sql
 CREATE TABLE tab
@@ -66,9 +66,9 @@ ORDER BY key
   The default ngram size, if not specified explicitly (for example, `tokenizer = ngrams`), is 3.
 - `sparseGrams(min_length, max_length, min_cutoff_length)` splits strings into variable-length n-grams of at least `min_length` and at most `max_length` (inclusive) characters (also see function [sparseGrams](/sql-reference/functions/string-functions#sparseGrams)).
   Unless specified explicitly, `min_length` and `max_length` default to 3 and 100.
-  If parameter `min_cutoff_length` is provided, only n-grams with length greater or equal than `min_cutoff_length` are stored in the index.
+  If parameter `min_cutoff_length` is provided, only n-grams with length greater or equal than `min_cutoff_length` are returned.
   Compared to `ngrams(N)`, the `sparseGrams` tokenizer produces variable-length N-grams, allowing for a more flexible representation of the original text.
-  For example, `tokenizer = sparseGrams(3, 5, 4)` internally generates 3-, 4-, 5-grams from the input string but only the 4- and 5-grams are stored in the index.
+  For example, `tokenizer = sparseGrams(3, 5, 4)` internally generates 3-, 4-, 5-grams from the input string but only the 4- and 5-grams are returned.
 - `array` performs no tokenization, i.e. every row value is a token (also see function [array](/sql-reference/functions/array-functions.md/#array)).
 
 :::note
@@ -311,7 +311,7 @@ SELECT count() FROM tab WHERE has(array, 'clickhouse');
 
 #### `mapContains` {#functions-example-mapcontains}
 
-Function [mapContains](/sql-reference/functions/tuple-map-functions#mapcontains) (an alias of `mapContainsKey`) matches against a single token in the keys of a map.
+Function [mapContains](/sql-reference/functions/tuple-map-functions#mapContainsKey) (an alias of `mapContainsKey`) matches against a single token in the keys of a map.
 
 Example:
 
@@ -319,6 +319,17 @@ Example:
 SELECT count() FROM tab WHERE mapContainsKey(map, 'clickhouse');
 -- OR
 SELECT count() FROM tab WHERE mapContains(map, 'clickhouse');
+```
+
+#### `mapContainsKeyLike` and `mapContainsValueLike` {#functions-example-mapcontainslike}
+
+The functions [mapContainsKeyLike](/sql-reference/functions/tuple-map-functions#mapContainsKeyLike) and [mapContainsValueLike](/sql-reference/functions/tuple-map-functions#mapContainsValueLike) match a pattern against all keys or values (respectively) of a map.
+
+Example:
+
+```sql
+SELECT count() FROM tab WHERE mapContainsKeyLike(map, '% clickhouse %');
+SELECT count() FROM tab WHERE mapContainsValueLike(map, '% clickhouse %');
 ```
 
 #### `operator[]` {#functions-example-access-operator}
@@ -399,14 +410,14 @@ SELECT count() FROM logs WHERE has(mapValues(attributes), '192.168.1.1'); -- slo
 As log volume grows, these queries become slow.
 
 The solution is creating a text index for the [Map](/sql-reference/data-types/map.md) keys and values.
-Use [mapKeys](/sql-reference/functions/tuple-map-functions.md/#mapkeys) to create a text index when you need to find logs by field names or attribute types:
+Use [mapKeys](/sql-reference/functions/tuple-map-functions.md/#mapKeys) to create a text index when you need to find logs by field names or attribute types:
 
 ```sql
 ALTER TABLE logs ADD INDEX attributes_keys_idx mapKeys(attributes) TYPE text(tokenizer = array);
 ALTER TABLE posts MATERIALIZE INDEX attributes_keys_idx;
 ```
 
-Use [mapValues](/sql-reference/functions/tuple-map-functions.md/#mapvalues) to create a text index when you need to search within the actual content of attributes:
+Use [mapValues](/sql-reference/functions/tuple-map-functions.md/#mapValues) to create a text index when you need to search within the actual content of attributes:
 
 ```sql
 ALTER TABLE logs ADD INDEX attributes_vals_idx mapValues(attributes) TYPE text(tokenizer = array);
@@ -421,6 +432,9 @@ SELECT * FROM logs WHERE mapContainsKey(attributes, 'rate_limit'); -- fast
 
 -- Finds all logs from a specific IP:
 SELECT * FROM logs WHERE has(mapValues(attributes), '192.168.1.1'); -- fast
+
+-- Finds all logs where any attribute includes an error:
+SELECT * FROM logs WHERE mapContainsValueLike(attributes, '% error %'); -- fast
 ```
 
 ## Performance Tuning {#performance-tuning}
@@ -508,6 +522,7 @@ Different caches are available to buffer parts of the text index in memory (see 
 Currently, there are caches for the deserialized dictionary blocks, headers and posting lists of the text index to reduce I/O.
 They can be enabled via settings [use_text_index_dictionary_cache](/operations/settings/settings#use_text_index_dictionary_cache), [use_text_index_header_cache](/operations/settings/settings#use_text_index_header_cache), and [use_text_index_postings_cache](/operations/settings/settings#use_text_index_postings_cache).
 By default, all caches are disabled.
+To drop the caches, use statement [SYSTEM DROP TEXT INDEX CACHES](../../../sql-reference/statements/system#drop-text-index-caches)
 
 Please refer the following server settings to configure the caches.
 
