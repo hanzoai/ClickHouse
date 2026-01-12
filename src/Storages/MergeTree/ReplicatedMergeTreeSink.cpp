@@ -29,7 +29,6 @@
 #include <fmt/core.h>
 
 
-
 namespace ProfileEvents
 {
     extern const Event DuplicatedInsertedBlocks;
