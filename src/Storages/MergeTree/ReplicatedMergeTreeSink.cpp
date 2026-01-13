@@ -353,7 +353,6 @@ void ReplicatedMergeTreeSink::consume(Chunk & chunk)
         if (total_streams + current_streams > max_insert_delayed_streams_for_parallel_write)
         {
             finishDelayed(zookeeper);
-            //std::move(current_parts.begin(), current_parts.end(), std::back_inserter(delayed_parts));
             delayed_parts = std::move(current_parts);
             finishDelayed(zookeeper);
 
@@ -411,7 +410,7 @@ void ReplicatedMergeTreeSink::finishDelayed(const ZooKeeperWithFaultInjectionPtr
             /// reset the cache version to zero for every partition write.
             /// Version zero allows to avoid wait on first iteration
             cache_version = 0;
-            int retry_times = 0;
+            size_t retry_times = 0;
             while (true)
             {
                 partition.temp_part->finalize();
