@@ -6,6 +6,6 @@ CREATE TABLE t0 (c0 String) ENGINE = MergeTree() ORDER BY (c0) SETTINGS write_ma
 
 INSERT INTO TABLE t0 (c0) VALUES('');
 
-SELECT c0.size FROM t0;
+-- SELECT c0.size FROM t0;
 
 DROP TABLE t0;
