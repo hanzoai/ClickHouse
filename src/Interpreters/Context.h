@@ -536,7 +536,6 @@ protected:
     ContextWeakMutablePtr session_context;  /// Session context or nullptr. Could be equal to this.
     ContextWeakMutablePtr global_context;   /// Global context. Could be equal to this.
     ContextMutablePtr background_context;   /// TODO: comment
-    ContextMutablePtr parent_context;       /// TODO: TEMP
 
     /// XXX: move this stuff to shared part instead.
     ContextMutablePtr buffer_context;  /// Buffer context. Could be equal to this.
