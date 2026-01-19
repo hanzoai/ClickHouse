@@ -1173,6 +1173,7 @@ ContextData::ContextData(const ContextData &o) :
     session_context(o.session_context),
     global_context(o.global_context),
     background_context(o.background_context),
+    parent_context(o.parent_context),
     buffer_context(o.buffer_context),
     is_internal_query(o.is_internal_query),
     temp_data_on_disk(o.temp_data_on_disk),
@@ -3230,6 +3231,7 @@ void Context::setMacros(std::unique_ptr<Macros> && macros)
 ContextMutablePtr Context::getQueryContext() const
 {
     auto ptr = query_context.lock();
+    if (!ptr && parent_context) ptr = parent_context->query_context.lock();
     if (!ptr)
         throw Exception(ErrorCodes::THERE_IS_NO_QUERY, "There is no query or query context has expired");
     return ptr;
@@ -3244,6 +3246,7 @@ bool Context::isInternalSubquery() const
 ContextMutablePtr Context::getSessionContext() const
 {
     auto ptr = session_context.lock();
+    if (!ptr && parent_context) ptr = parent_context->session_context.lock();
     if (!ptr) throw Exception(ErrorCodes::THERE_IS_NO_SESSION, "There is no session or session context has expired");
     return ptr;
 }
@@ -3257,13 +3260,19 @@ ContextMutablePtr Context::getGlobalContext() const
 
 ContextMutablePtr Context::getBackgroundContext() const
 {
-    if (!background_context) throw Exception(ErrorCodes::LOGICAL_ERROR, "There is no background context");
-    /// TODO: temp tweak to support recursive handling of projections
-    background_context->background_context = background_context;
-    /// TODO: temp tweak to support embedded selects
-    background_context->query_context = query_context;
-    background_context->session_context = session_context;
-    return background_context;
+    if (parent_context) return parent_context->background_context;
+    else if (background_context) return background_context;
+    else throw Exception(ErrorCodes::LOGICAL_ERROR, "There is no background context");
+
+    // if (parent_context) return shared_from_this();
+    // if (!background_context) throw Exception(ErrorCodes::LOGICAL_ERROR, "There is no background context");
+    // auto ptr = background_context;
+    // // /// TODO: temp tweak to support recursive handling of projections
+    // // background_context->background_context = background_context;
+    // // /// TODO: temp tweak to support embedded selects
+    // // background_context->query_context = query_context;
+    // // background_context->session_context = session_context;
+    // return background_context;
 }
 
 ContextMutablePtr Context::getBufferContext() const
