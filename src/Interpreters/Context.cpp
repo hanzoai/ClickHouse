@@ -3259,7 +3259,7 @@ ContextMutablePtr Context::getBackgroundContext() const
 {
     // if (!background_context) throw Exception(ErrorCodes::LOGICAL_ERROR, "There is no background context");
     auto ptr = Context::createCopy(shared_from_this());
-    background_context->setCurrentProfile(shared->background_profile_name);
+    ptr->setCurrentProfile(shared->background_profile_name);
     return ptr;
 
     // if (parent_context) return parent_context->getBackgroundContext();
